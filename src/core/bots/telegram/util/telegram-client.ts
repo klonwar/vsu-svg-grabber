@@ -107,10 +107,19 @@ class TelegramClient extends TelegramBot {
         `Скачиваю ${link}`
       );
 
-      this.tasks.set(msg.chat.id, new Task(link, async ({file, filename}) => {
-        await this.sendDocument(msg.chat.id, file, {}, {
-          filename,
-        });
+      this.tasks.set(msg.chat.id, new Task(link, async (props) => {
+        if (!props) {
+          await this.sendMessage(
+            msg.chat.id,
+            `По данной ссылке нет ни одного слайда`
+          );
+        } else {
+          const {file, filename} = props;
+          await this.sendDocument(msg.chat.id, file, {}, {
+            filename,
+          });
+        }
+
         console.log(`-@ Completed task for @${msg.chat.username}`);
         this.tasks.delete(msg.chat.id);
       }));

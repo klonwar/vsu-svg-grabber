@@ -56,6 +56,14 @@ class Task {
   private async getPresentationLength(): Promise<number> {
     this.pushBotStatus(BotStatusEnum.COUNTING);
 
+    // Проверим, есть ли первый слайд
+    const isPresentationExists = await new Promise((resolve) => {
+      fetch(`${this.link}/1`).then((res) => resolve(res.status === 200));
+    });
+
+    if (!isPresentationExists)
+      return 0;
+
     // Получим длину презы двоичным поиском
     let l = 1;
     let r = 1000;
@@ -106,6 +114,9 @@ class Task {
     const fetchPromises: Promise<string>[] = [];
 
     const length = await this.getPresentationLength();
+
+    if (length === 0)
+      return null;
 
     for (let i = 1; i <= length; i++) {
       fetchPromises.push(new Promise<string>((resolve) => {
