@@ -1,0 +1,9 @@
+.idea
+node_modules
+/logs
+dist
+*.exe
+.env
+db
+*.db
+test.pdf
