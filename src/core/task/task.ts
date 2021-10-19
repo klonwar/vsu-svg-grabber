@@ -97,30 +97,25 @@ class Task {
         resolve(Buffer.concat(pdfBuffers));
       });
 
-      let savedD = `pt`;
       let savedWidth = 1000;
       let savedHeight = 800;
 
       const pxToPt = (px) => px* 0.75292857248934;
 
       for (const item of imageBuffers) {
-        let d = `pt`;
         let width = parseInt(item.match(/width="([0-9.]+)pt"/)?.[1] ?? ``) || undefined;
         let height = parseInt(item.match(/height="([0-9.]+)pt"/)?.[1] ?? ``) || undefined;
 
         if (!width || !height) {
-          d = `px`;
           width = pxToPt(parseInt(item.match(/width="([0-9.]+)px"/)?.[1] ?? ``)) || undefined;
           height = pxToPt(parseInt(item.match(/height="([0-9.]+)px"/)?.[1] ?? ``)) || undefined;
         }
 
         if (!width || !height) {
-          d = savedD;
           width = savedWidth;
           height = savedHeight;
         }
 
-        savedD = d;
         savedWidth = width;
         savedHeight = height;
 
