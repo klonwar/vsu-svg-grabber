@@ -92,6 +92,7 @@ class TelegramClient extends TelegramBot {
 
     this.onText(/https:\/\/[a-zA-Z0-9_-]+\.edu\.vsu\.ru\/bigbluebutton\/presentation\/[a-zA-Z0-9/_-]+\/svg(\/[0-9]*)?/, async (msg, match) => {
       const link = match[0].replace(/\/svg\/[0-9]+/, `/svg/`);
+      const username = msg.chat.username ?? msg.chat.id + ``;
 
       if (this.tasks.get(msg.chat.id)) {
         await this.sendMessage(
@@ -101,13 +102,15 @@ class TelegramClient extends TelegramBot {
         return;
       }
 
-      console.log(`-@ Downloading ${link} for @${msg.chat.username}`);
+      console.log(`-@ Downloading ${link} for @${username}`);
       await this.sendMessage(
         msg.chat.id,
         `Скачиваю ${link}`
       );
 
-      this.tasks.set(msg.chat.id, new Task(link, async (props) => {
+
+
+      this.tasks.set(msg.chat.id, new Task(link, username, async (props) => {
         if (!props) {
           await this.sendMessage(
             msg.chat.id,
@@ -118,9 +121,16 @@ class TelegramClient extends TelegramBot {
           await this.sendDocument(msg.chat.id, file, {}, {
             filename,
           });
+
+          if (!this.tasks.get(msg.chat.id).isFullPresentation) {
+            await this.sendMessage(
+              msg.chat.id,
+              `Внимание! Из-за нестабильности мудла некоторые слайды были пропущены. Повторите попытку позже`
+            );
+          }
         }
 
-        console.log(`-@ Completed task for @${msg.chat.username}`);
+        console.log(`-@ Completed task for @${username}`);
         this.tasks.delete(msg.chat.id);
       }));
     });

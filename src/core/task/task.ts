@@ -1,6 +1,9 @@
 import fetch from "node-fetch";
 import pdfkit from "pdfkit";
 import svg2pdf from "svg-to-pdfkit";
+import { waitFor } from "#src/core/util/wait-for";
+import chalk from "chalk";
+import { MAX_ERROR_STRIKE, MAX_PRESENTATION_LENGTH } from "#src/config";
 
 export enum BotStatusEnum {
   NOT_STARTED = `Not started`,
@@ -31,7 +34,9 @@ class Task {
     start: new Date()
   }];
 
-  constructor(private link: string, onFinish: SubscribeFunction) {
+  public isFullPresentation = true;
+
+  constructor(private link: string, private username: string, onFinish: SubscribeFunction) {
     this.downloadPresentation().then(onFinish);
   }
 
@@ -66,14 +71,31 @@ class Task {
 
     // Получим длину презы двоичным поиском
     let l = 1;
-    let r = 1000;
+    let r = MAX_PRESENTATION_LENGTH;
+
+    let errorStrike = 0;
 
     while (l < r) {
       const m = Math.floor((l + r) / 2);
-      const isExists = await new Promise((resolve) => {
-        fetch(`${this.link}/${m}`).then((res) => resolve(res.status === 200));
-      });
 
+      let isExists;
+      try {
+        isExists = await new Promise((resolve, reject) => {
+          fetch(`${this.link}/${m}`).then((res) => resolve(res.status === 200)).catch((e) => reject(e));
+        });
+      } catch (e) {
+        if (errorStrike <= MAX_ERROR_STRIKE) {
+          console.error(chalk.yellow(`-(@${this.username})[getPresentationLength]! ${e.message}. Repeating`));
+          errorStrike++;
+          await waitFor(1000);
+          continue;
+        } else {
+          console.error(chalk.red(`-(@${this.username})[getPresentationLength]! Cannot open slide number ${m}`));
+          isExists = false;
+        }
+      }
+
+      errorStrike = 0;
       if (isExists) {
         l = m + 1;
       } else {
@@ -100,9 +122,16 @@ class Task {
       let savedWidth = 1000;
       let savedHeight = 800;
 
-      const pxToPt = (px) => px* 0.75292857248934;
+      const pxToPt = (px) => px * 0.75292857248934;
 
       for (const item of imageBuffers) {
+        if (!item) {
+          this.isFullPresentation = false;
+          console.error(chalk.red(`-(@${this.username})[generatePdf]! Skip missing slide`));
+          doc.addPage({size: [500, 500]});
+          continue;
+        }
+
         let width = parseInt(item.match(/width="([0-9.]+)pt"/)?.[1] ?? ``) || undefined;
         let height = parseInt(item.match(/height="([0-9.]+)pt"/)?.[1] ?? ``) || undefined;
 
@@ -128,6 +157,12 @@ class Task {
     return buffer;
   }
 
+  private async fetchAndResolveText(url): Promise<string | null> {
+    return new Promise((resolve) => {
+      fetch(url).then((res) => res.text()).then(resolve).catch(() => resolve(null));
+    });
+  }
+
   private async downloadPresentation(): Promise<SubscribeFunctionProps> {
     this.setBotStatus(BotStatusEnum.STARTED);
     const fetchPromises: Promise<string>[] = [];
@@ -137,10 +172,23 @@ class Task {
     if (length === 0)
       return null;
 
+
     for (let i = 1; i <= length; i++) {
-      fetchPromises.push(new Promise<string>((resolve) => {
-        fetch(`${this.link}/${i}`).then((res) => res.text()).then(resolve);
-      }));
+      fetchPromises.push((async () => {
+        let text;
+        let errorStrike = 0;
+
+        while (!text && errorStrike <= MAX_ERROR_STRIKE) {
+          text = await this.fetchAndResolveText(`${this.link}/${i}`);
+          errorStrike++;
+
+          if (!text) {
+            console.error(chalk.yellow(`-(@${this.username})[downloadPresentation]! Error when loading slide #${i}. Repeating`));
+          }
+        }
+
+        return text;
+      })());
     }
 
     this.pushBotStatus(BotStatusEnum.DOWNLOADING_SVGS);

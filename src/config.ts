@@ -3,6 +3,10 @@ import {StateItem} from "#src/core/state-item";
 
 export const BOT_NAME = `- VSU SVG Grabber v${pjson.version} -`;
 
+export const MAX_ERROR_STRIKE = 5;
+
+export const MAX_PRESENTATION_LENGTH = 500;
+
 export const TELEGRAM_CONFIG = {
   createTitle: (item: StateItem): string => item.info.title.replace(/Объявление/, ``) + ` - ${item.info.price}`,
   helpMessage: `Я скачаю за вас презентацию с мудла и сделаю пдфку.\n`+
