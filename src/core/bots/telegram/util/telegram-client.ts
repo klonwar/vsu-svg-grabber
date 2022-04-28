@@ -6,8 +6,8 @@ import telegramDataConstructor from "#src/core/bots/telegram/util/telegram-data-
 import Task from "#src/core/task/task";
 import os from "os";
 import moment from "moment";
-import {StateItem} from "#src/core/state-item";
-import {TELEGRAM_CONFIG} from "#src/config";
+import { StateItem } from "#src/core/state-item";
+import { TELEGRAM_CONFIG } from "#src/config";
 
 class TelegramClient extends TelegramBot {
   private readonly chatIdsFile = `db/chat-ids.db`;
@@ -18,11 +18,11 @@ class TelegramClient extends TelegramBot {
     super(token, options);
 
     this.setMyCommands([
-      {command: `/start`, description: `Start receiving notifications`},
-      {command: `/help`, description: `Show help`},
-      {command: `/memory `, description: `Show used RAM`},
-      {command: `/ping `, description: `Check bot availability`},
-      {command: `/status `, description: `Show bot status`},
+      { command: `/start`, description: `Start receiving notifications` },
+      { command: `/help`, description: `Show help` },
+      { command: `/memory `, description: `Show used RAM` },
+      { command: `/ping `, description: `Check bot availability` },
+      { command: `/status `, description: `Show bot status` },
     ]);
 
     this.onText(/\/start/, async (msg) => {
@@ -30,6 +30,38 @@ class TelegramClient extends TelegramBot {
         console.log(`-@@ [${chalk.greenBright(`BOT`)}] +${msg.chat.id}`);
         this.chatIds.push(msg.chat.id);
         await this.saveIds();
+      }
+    });
+
+    this.onText(/\/broadcast /, async (msg) => {
+      if (msg.chat.username && msg.chat.username === process.env.ADMIN_NICKNAME) {
+        const adminId = msg.chat.id;
+        const message = msg.text.replace(/\/broadcast /, ``);
+
+        const broadcastPromises = this.chatIds.map(async (id) => {
+          if (id !== adminId) {
+            await this.sendMessage(
+              id,
+              message,
+            );
+          }
+        });
+
+        await Promise.allSettled(broadcastPromises);
+
+        await this.sendMessage(
+          adminId,
+          `Отправлено всем пользователям бота:`,
+        );
+        await this.sendMessage(
+          adminId,
+          message,
+        );
+      } else {
+        await this.sendMessage(
+          msg.chat.id,
+          `403 Forbidden`,
+        );
       }
     });
 
@@ -85,7 +117,7 @@ class TelegramClient extends TelegramBot {
         await this.sendMessage(
           msg.chat.id,
           botStatus.map((item) => `_${item.status}_`).join(` / `) + ` \\- ${timeLabel}`,
-          {parse_mode: `MarkdownV2`}
+          { parse_mode: `MarkdownV2` }
         );
       }
     });
@@ -109,7 +141,6 @@ class TelegramClient extends TelegramBot {
       );
 
 
-
       this.tasks.set(msg.chat.id, new Task(link, username, async (props) => {
         if (!props) {
           await this.sendMessage(
@@ -117,7 +148,7 @@ class TelegramClient extends TelegramBot {
             `По данной ссылке нет ни одного слайда`
           );
         } else {
-          const {file, filename} = props;
+          const { file, filename } = props;
           await this.sendDocument(msg.chat.id, file, {}, {
             filename,
           });
