@@ -1,4 +1,4 @@
-import TelegramBot from "node-telegram-bot-api";
+import TelegramBot, { Message } from "node-telegram-bot-api";
 import chalk from "chalk";
 import writeFile from "#src/core/util/write-file";
 import readFile from "#src/core/util/read-file";
@@ -33,8 +33,42 @@ class TelegramClient extends TelegramBot {
       }
     });
 
+    this.onText(/\/users/, async (msg) => {
+      if (this.isAdmin(msg)) {
+        const adminId = msg.chat.id;
+
+        const userDatasPromises = this.chatIds.map(async (id) => {
+          if (id !== adminId) {
+            const chat = await this.getChat(id);
+            return [chat.id, chat.username];
+          }
+        });
+
+        const userDatasResult = await Promise.allSettled(userDatasPromises);
+        const userDatas = userDatasResult
+          .filter((item) =>
+            item.status === `fulfilled` && item.value
+          );
+        await this.sendMessage(
+          adminId,
+          userDatas
+            .map((item) => item.status === `fulfilled` && item.value)
+            .map(([id, username], index) =>
+              `${index + 1}.  [${id}]  @${username}`
+            )
+            .join(`\n`),
+        )
+        ;
+      } else {
+        await this.sendMessage(
+          msg.chat.id,
+          `403 Forbidden`,
+        );
+      }
+    });
+
     this.onText(/\/broadcast /, async (msg) => {
-      if (msg.chat.username && msg.chat.username === process.env.ADMIN_NICKNAME) {
+      if (this.isAdmin(msg)) {
         const adminId = msg.chat.id;
         const message = msg.text.replace(/\/broadcast /, ``);
 
@@ -186,6 +220,10 @@ class TelegramClient extends TelegramBot {
 
   private async saveIds(): Promise<void> {
     await writeFile(this.chatIdsFile, this.chatIds.join(`\n`));
+  }
+
+  private isAdmin(msg: Message): boolean {
+    return !!msg.chat.username && msg.chat.username === process.env.ADMIN_NICKNAME;
   }
 
   async sendAll(item: StateItem): Promise<void> {
