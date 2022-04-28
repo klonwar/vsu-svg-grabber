@@ -53,6 +53,7 @@ class TelegramClient extends TelegramBot {
           adminId,
           userDatas
             .map((item) => item.status === `fulfilled` && item.value)
+            .filter(([, username]) => !!username)
             .map(([id, username], index) =>
               `${index + 1}.  [${id}]  @${username}`
             )
