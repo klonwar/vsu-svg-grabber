@@ -148,7 +148,11 @@ class Task {
         savedWidth = width;
         savedHeight = height;
 
-        svg2pdf(doc.addPage({size: [width, height]}), item);
+        try {
+          svg2pdf(doc.addPage({size: [width, height]}), item);
+        } catch (e) {
+          console.log(`-! Some page is broken`);
+        }
       }
       doc.end();
     });
